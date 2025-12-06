@@ -526,6 +526,10 @@ async def join_lobby(sid, data):
         await sio.emit("error", "Lobby not found!", sid)
         return
     if lobby.current_state != GameState.WAITING:
+        await sio.emit("error", "Game is already started!", sid)
+        return
+    if len(lobby.players) >= 12:
+        await sio.emit("error", "Lobby is full!", sid)
         return
     player = Player(get_id_from_sid(sid), username)
     player_to_lobby[player.id] = lobby.lobby_code
@@ -663,12 +667,27 @@ async def vote_presentation(sid, data):
     await sio.emit("voted", None, sid)
 
 @sio.event
-async def send_reaction(sid, reaction):
+async def done_presenting(sid):
     player_id = get_id_from_sid(sid)
     lobby, _ = get_lobby_and_player(player_id)
     if not lobby:
         return
-    await sio.emit("reaction", reaction, get_sid_from_id(lobby.host_id))
+    player_stats = []
+    for p in lobby.players:
+        p: Player
+        player_stats.append({
+            "username": p.username,
+            "score": p.voting_score
+        })
+    sio.emit("game_end", player_stats, sid)
+
+@sio.event
+async def send_reaction(sid, reaction):
+    player_id = get_id_from_sid(sid)
+    lobby, player = get_lobby_and_player(player_id)
+    if not lobby:
+        return
+    await sio.emit("reaction",{"emoji": reaction, "username": player.username}, get_sid_from_id(lobby.host_id))
 
 # ------------------ Root ------------------
 @app.api_route("/")
