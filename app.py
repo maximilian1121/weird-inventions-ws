@@ -331,7 +331,8 @@ async def done_presenting(sid):
             "username": p.username,
             "score": p.voting_score
         })
-    sio.emit("game_end", player_stats, sid)
+        await sio.emit("game_state", "end", get_sid_from_id(p.id))
+    await sio.emit("game_end", player_stats, sid)
 
 @sio.event
 async def send_reaction(sid, reaction):
